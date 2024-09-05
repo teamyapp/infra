@@ -1,0 +1,13 @@
+[package]
+name = "infra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tonic = "0.12.2"
+prost = "0.13.2"
+rand = "0.8"
+
+[build-dependencies]
+tonic-build = "0.12.2"
