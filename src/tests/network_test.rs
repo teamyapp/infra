@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::thread::{sleep, spawn};
+    use std::thread::{spawn};
     use std::time::Duration;
     use crate::platform::network::NetworkInterface;
     use crate::platform_testing::network::{SimulatedNetwork, SimulatedNetworkConfig};
@@ -27,6 +27,7 @@ mod tests {
         network.register_network_interface(Arc::clone(&network_interface1));
         network.register_network_interface(Arc::clone(&network_interface2));
         network.register_network_interface(Arc::clone(&network_interface3));
+
         network.connect("192.168.1.1", "192.168.1.2");
 
         let server_port = 8080;
@@ -41,7 +42,7 @@ mod tests {
                 None => return,
                 Some(tcp_stream) => tcp_stream
             };
-            println!("[Server] accepted connection from {:?}", tcp_stream.get_remote_endpoint());
+            println!("[Server] accepted incoming connection from {:?}", tcp_stream.get_remote_endpoint());
             spawn(move || {
                 loop {
                     let data = match tcp_stream.receive() {
@@ -72,8 +73,8 @@ mod tests {
             Some(tcp_stream) => tcp_stream
         };
         println!("[Client] connected to {:?}", client_stream1.get_remote_endpoint());
-        let request = "Hello";
 
+        let request = "Hello";
         println!("[Client] sending request to {:?}: {}", client_stream1.get_remote_endpoint(), request);
         client_stream1.send(request.as_bytes());
         println!("[Client] sent request to {:?}: {}", client_stream1.get_remote_endpoint(), request);
