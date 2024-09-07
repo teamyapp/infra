@@ -7,13 +7,13 @@ pub enum Control {
     Sync,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PacketType {
     Data,
     Control
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Packet {
     pub source: Endpoint,
     pub destination: Endpoint,
