@@ -7,12 +7,6 @@ use std::ops::Range;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-#[derive(Clone, Debug)]
-pub struct Endpoint {
-    pub ip: String,
-    pub port: u16,
-}
-
 #[derive(Debug)]
 pub struct SimulatedNetworkConfig {
     pub drop_rate: f32,

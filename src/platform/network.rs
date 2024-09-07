@@ -1,6 +1,11 @@
-use crate::platform_testing::network::Endpoint;
 use std::fmt::Debug;
 use std::sync::Arc;
+
+#[derive(Clone, Debug)]
+pub struct Endpoint {
+    pub ip: String,
+    pub port: u16,
+}
 
 #[derive(Debug, Clone)]
 pub enum Control {

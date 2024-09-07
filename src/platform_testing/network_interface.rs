@@ -1,7 +1,7 @@
 use crate::platform::network::{
-    Control, NetworkInterface, Packet, PacketType, TcpListener, TcpStream,
+    Control, Endpoint, NetworkInterface, Packet, PacketType, TcpListener, TcpStream,
 };
-use crate::platform_testing::network::{Endpoint, SimulatedNetwork};
+use crate::platform_testing::network::SimulatedNetwork;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::{Receiver, Sender};
