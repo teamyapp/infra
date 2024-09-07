@@ -1,5 +1,5 @@
-mod platform_testing;
 mod platform;
+mod platform_testing;
 mod tests;
 
 fn main() {

@@ -1,20 +1,20 @@
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use std::thread::{spawn};
-    use std::time::Duration;
     use crate::platform::network::NetworkInterface;
     use crate::platform_testing::network::{SimulatedNetwork, SimulatedNetworkConfig};
     use crate::platform_testing::network_interface::SimulatedNetworkInterface;
+    use std::sync::Arc;
+    use std::thread::spawn;
+    use std::time::Duration;
 
     #[test]
     fn test_simulated_network_interface() {
-        let network = Arc::new(SimulatedNetwork::new(SimulatedNetworkConfig{
+        let network = Arc::new(SimulatedNetwork::new(SimulatedNetworkConfig {
             drop_rate: 0.0,
             short_delay_rate: 0.0,
             long_delay_rate: 0.0,
             short_delay_range: Duration::from_millis(0)..Duration::from_millis(0),
-            long_delay_range: Duration::from_millis(0)..Duration::from_millis(0)
+            long_delay_range: Duration::from_millis(0)..Duration::from_millis(0),
         }));
         let network_interface1 = Arc::new(SimulatedNetworkInterface::new(Arc::clone(&network)));
         let network_interface2 = Arc::new(SimulatedNetworkInterface::new(Arc::clone(&network)));
@@ -33,33 +33,42 @@ mod tests {
         let server_port = 8080;
         let tcp_listener1 = match network_interface2.bind_tcp("", server_port) {
             None => return,
-            Some(tcp_listener) => tcp_listener
+            Some(tcp_listener) => tcp_listener,
         };
         println!("[Server] listening on {:?}", server_port);
 
         spawn(move || {
             let tcp_stream = match tcp_listener1.accept() {
                 None => return,
-                Some(tcp_stream) => tcp_stream
+                Some(tcp_stream) => tcp_stream,
             };
-            println!("[Server] accepted incoming connection from {:?}", tcp_stream.get_remote_endpoint());
-            spawn(move || {
-                loop {
-                    let data = match tcp_stream.receive() {
-                        None => return,
-                        Some(data) => data
-                    };
-                    let request = std::str::from_utf8(data.as_ref());
-                    let request = match request {
-                        Err(_) => return,
-                        Ok(request) => request
-                    };
-                    println!("[Server] received from {:?}: {}", tcp_stream.get_remote_endpoint(), request);
-                    let response = "World";
-                    tcp_stream.send(response.as_bytes());
-                    println!("[Server] replied to {:?}: {}", tcp_stream.get_remote_endpoint(), response);
-                    return;
-                }
+            println!(
+                "[Server] accepted incoming connection from {:?}",
+                tcp_stream.get_remote_endpoint()
+            );
+            spawn(move || loop {
+                let data = match tcp_stream.receive() {
+                    None => return,
+                    Some(data) => data,
+                };
+                let request = std::str::from_utf8(data.as_ref());
+                let request = match request {
+                    Err(_) => return,
+                    Ok(request) => request,
+                };
+                println!(
+                    "[Server] received from {:?}: {}",
+                    tcp_stream.get_remote_endpoint(),
+                    request
+                );
+                let response = "World";
+                tcp_stream.send(response.as_bytes());
+                println!(
+                    "[Server] replied to {:?}: {}",
+                    tcp_stream.get_remote_endpoint(),
+                    response
+                );
+                return;
             });
         });
 
@@ -70,22 +79,40 @@ mod tests {
 
         let client_stream1 = match client_stream1 {
             None => return,
-            Some(tcp_stream) => tcp_stream
+            Some(tcp_stream) => tcp_stream,
         };
-        println!("[Client] connected to {:?}", client_stream1.get_remote_endpoint());
+        println!(
+            "[Client] connected to {:?}",
+            client_stream1.get_remote_endpoint()
+        );
 
         let request = "Hello";
-        println!("[Client] sending request to {:?}: {}", client_stream1.get_remote_endpoint(), request);
+        println!(
+            "[Client] sending request to {:?}: {}",
+            client_stream1.get_remote_endpoint(),
+            request
+        );
         client_stream1.send(request.as_bytes());
-        println!("[Client] sent request to {:?}: {}", client_stream1.get_remote_endpoint(), request);
+        println!(
+            "[Client] sent request to {:?}: {}",
+            client_stream1.get_remote_endpoint(),
+            request
+        );
 
-        println!("[Client] receiving response from {:?}", client_stream1.get_remote_endpoint());
+        println!(
+            "[Client] receiving response from {:?}",
+            client_stream1.get_remote_endpoint()
+        );
         let data = client_stream1.receive();
         assert!(!data.is_none());
         let data = match data {
             None => return,
-            Some(data) => data
+            Some(data) => data,
         };
-        println!("[Client] received response from {:?}: {}", client_stream1.get_remote_endpoint(), std::str::from_utf8(data.as_ref()).unwrap());
+        println!(
+            "[Client] received response from {:?}: {}",
+            client_stream1.get_remote_endpoint(),
+            std::str::from_utf8(data.as_ref()).unwrap()
+        );
     }
 }
