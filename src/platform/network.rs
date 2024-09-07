@@ -1,6 +1,11 @@
 use std::fmt::Debug;
 use std::sync::Arc;
-use crate::platform_testing::network::Endpoint;
+
+#[derive(Clone, Debug)]
+pub struct Endpoint {
+    pub ip: String,
+    pub port: u16,
+}
 
 #[derive(Debug, Clone)]
 pub enum Control {
@@ -10,7 +15,7 @@ pub enum Control {
 #[derive(Debug, Clone)]
 pub enum PacketType {
     Data,
-    Control
+    Control,
 }
 
 #[derive(Debug, Clone)]
@@ -27,7 +32,7 @@ pub trait NetworkInterface {
     fn bind_tcp(&self, local_ip: &str, local_port: u16) -> Option<Arc<dyn TcpListener>>;
 }
 
-pub trait TcpStream : Debug + Send + Sync {
+pub trait TcpStream: Debug + Send + Sync {
     fn send(&self, data: &[u8]);
     fn receive(&self) -> Option<Box<[u8]>>;
     fn send_control(&self, control: Control);

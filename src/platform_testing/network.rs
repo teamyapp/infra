@@ -1,17 +1,11 @@
+use crate::platform::network::{Packet, TcpStream};
+use crate::platform_testing::network_interface::SimulatedNetworkInterface;
+use rand::rngs::ThreadRng;
+use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use rand::Rng;
-use rand::rngs::ThreadRng;
-use crate::platform::network::{Packet, TcpStream};
-use crate::platform_testing::network_interface::SimulatedNetworkInterface;
-
-#[derive(Clone, Debug)]
-pub struct Endpoint {
-    pub ip: String,
-    pub port: u16,
-}
 
 #[derive(Debug)]
 pub struct SimulatedNetworkConfig {
@@ -19,14 +13,14 @@ pub struct SimulatedNetworkConfig {
     pub short_delay_rate: f32,
     pub long_delay_rate: f32,
     pub short_delay_range: Range<Duration>,
-    pub long_delay_range: Range<Duration>
+    pub long_delay_range: Range<Duration>,
 }
 
 #[derive(Debug)]
 pub struct SimulatedNetwork {
     network_interfaces: Arc<Mutex<HashMap<String, Arc<SimulatedNetworkInterface>>>>,
     connections: Arc<Mutex<HashSet<(String, String)>>>,
-    config: SimulatedNetworkConfig
+    config: SimulatedNetworkConfig,
 }
 
 impl SimulatedNetwork {
@@ -34,13 +28,15 @@ impl SimulatedNetwork {
         SimulatedNetwork {
             network_interfaces: Arc::new(Mutex::new(HashMap::new())),
             connections: Arc::new(Mutex::new(HashSet::new())),
-            config
+            config,
         }
     }
 
     pub fn get_network_interface(&self, ip: &str) -> Option<Arc<SimulatedNetworkInterface>> {
         let network_interfaces = self.network_interfaces.lock().unwrap();
-        network_interfaces.get(ip).map(|network_interface| network_interface.clone())
+        network_interfaces
+            .get(ip)
+            .map(|network_interface| network_interface.clone())
     }
 
     pub fn send_packet(&self, packet: &Packet) {
@@ -48,7 +44,10 @@ impl SimulatedNetwork {
         let destination_ip = packet.destination.ip.to_string();
         let connections = self.connections.lock().unwrap();
         if !connections.contains(&(source_ip, destination_ip)) {
-            println!("No connection between {}:{}, dropping packet", packet.source.port, packet.destination.ip);
+            println!(
+                "No connection between {}:{}, dropping packet",
+                packet.source.port, packet.destination.ip
+            );
             return;
         }
 
@@ -64,23 +63,33 @@ impl SimulatedNetwork {
         let network_interfaces = self.network_interfaces.lock().unwrap();
         let destination_network_interface = match network_interfaces.get(&packet.destination.ip) {
             None => return,
-            Some(network_interface) => network_interface
+            Some(network_interface) => network_interface,
         };
-        let stream = match destination_network_interface
-            .get_stream(&packet.source, &packet.destination) {
-            None => return,
-            Some(stream) => stream
-        };
+        let stream =
+            match destination_network_interface.get_stream(&packet.source, &packet.destination) {
+                None => return,
+                Some(stream) => stream,
+            };
 
         if sample <= self.config.short_delay_rate {
-            Self::delay_packet(&mut rng, stream, packet.clone(), self.config.short_delay_range.clone());
+            Self::delay_packet(
+                &mut rng,
+                stream,
+                packet.clone(),
+                self.config.short_delay_range.clone(),
+            );
             return;
         }
 
         sample -= self.config.short_delay_rate;
 
         if sample <= self.config.long_delay_rate {
-            Self::delay_packet(&mut rng, stream, packet.clone(), self.config.long_delay_range.clone());
+            Self::delay_packet(
+                &mut rng,
+                stream,
+                packet.clone(),
+                self.config.long_delay_range.clone(),
+            );
             return;
         }
 
@@ -107,9 +116,19 @@ impl SimulatedNetwork {
         }
     }
 
-    fn delay_packet(rng: &mut ThreadRng, stream:Arc<dyn TcpStream>, packet: Packet, delay_range: Range<Duration>) {
+    fn delay_packet(
+        rng: &mut ThreadRng,
+        stream: Arc<dyn TcpStream>,
+        packet: Packet,
+        delay_range: Range<Duration>,
+    ) {
         let delay = rng.gen_range(delay_range);
-        println!("Delay packet to {}:{} for {}ms", packet.destination.ip, packet.destination.port, delay.as_millis());
+        println!(
+            "Delay packet to {}:{} for {}ms",
+            packet.destination.ip,
+            packet.destination.port,
+            delay.as_millis()
+        );
         tokio::spawn(async move {
             tokio::time::sleep(delay).await;
             stream.on_packet_received(&packet);

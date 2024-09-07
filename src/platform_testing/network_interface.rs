@@ -1,10 +1,12 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{mpsc, Arc, Mutex};
-use std::sync::mpsc::{Receiver, Sender};
-use std::thread::spawn;
+use crate::platform::network::{
+    Control, Endpoint, NetworkInterface, Packet, PacketType, TcpListener, TcpStream,
+};
+use crate::platform_testing::network::SimulatedNetwork;
 use rand::Rng;
-use crate::platform_testing::network::{Endpoint, SimulatedNetwork};
-use crate::platform::network::{Control, NetworkInterface, Packet, PacketType, TcpListener, TcpStream};
+use std::collections::{HashMap, HashSet};
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread::spawn;
 
 #[derive(Debug)]
 pub struct SimulatedNetworkInterface {
@@ -27,7 +29,8 @@ impl SimulatedNetworkInterface {
     }
 
     pub fn get_ip_addresses(&self) -> Vec<String> {
-        self.ip_addresses.lock()
+        self.ip_addresses
+            .lock()
             .unwrap()
             .iter()
             .map(|ip| ip.to_string())
@@ -48,33 +51,50 @@ impl SimulatedNetworkInterface {
         }
     }
 
-    pub fn get_stream(&self, source_endpoint: &Endpoint, destination_endpoint: &Endpoint) -> Option<Arc<dyn TcpStream>> {
-        let stream = self.streams.lock()
+    pub fn get_stream(
+        &self,
+        source_endpoint: &Endpoint,
+        destination_endpoint: &Endpoint,
+    ) -> Option<Arc<dyn TcpStream>> {
+        let stream = self
+            .streams
+            .lock()
             .unwrap()
-            .get(&(destination_endpoint.ip.to_string(), destination_endpoint.port))
+            .get(&(
+                destination_endpoint.ip.to_string(),
+                destination_endpoint.port,
+            ))
             .map(|stream| Arc::clone(stream));
         match stream {
             Some(stream) => return Some(stream),
             None => {}
         }
 
-        let listener = self.tcp_listeners.lock()
+        let listener = self
+            .tcp_listeners
+            .lock()
             .unwrap()
-            .get(&(destination_endpoint.ip.to_string(), destination_endpoint.port))
+            .get(&(
+                destination_endpoint.ip.to_string(),
+                destination_endpoint.port,
+            ))
             .map(|listener| Arc::clone(listener))?;
-        listener.get_stream(&source_endpoint)
+        listener
+            .get_stream(&source_endpoint)
             .map(|stream| stream as Arc<dyn TcpStream>)
     }
 
     fn get_tcp_listener(&self, ip: &str, port: u16) -> Option<Arc<SimulatedTcpListener>> {
-        self.tcp_listeners.lock()
+        self.tcp_listeners
+            .lock()
             .unwrap()
             .get(&(ip.to_string(), port))
             .map(|tcp_listener| Arc::clone(tcp_listener))
     }
 
     pub fn pick_local_ip(&self, remote_ip: &str) -> Option<String> {
-        self.ip_addresses.lock()
+        self.ip_addresses
+            .lock()
             .unwrap()
             .iter()
             .next()
@@ -84,7 +104,9 @@ impl SimulatedNetworkInterface {
     fn allocate_port(&self, ip: &str) -> Option<u16> {
         let mut rng = rand::thread_rng();
         let mut allocated_ports = self.allocated_ports.lock().unwrap();
-        let ports = allocated_ports.entry(ip.to_string()).or_insert(HashSet::new());
+        let ports = allocated_ports
+            .entry(ip.to_string())
+            .or_insert(HashSet::new());
         if ports.len() == 65536 {
             return None;
         }
@@ -108,7 +130,8 @@ impl NetworkInterface for SimulatedNetworkInterface {
         let local_ip = self.pick_local_ip(remote_ip)?;
         let local_port = self.allocate_port(local_ip.as_str())?;
         let remote_network_interface = self.network.get_network_interface(remote_ip)?;
-        let remote_tcp_listener = remote_network_interface.get_tcp_listener(remote_ip, remote_port)?;
+        let remote_tcp_listener =
+            remote_network_interface.get_tcp_listener(remote_ip, remote_port)?;
         let local_endpoint = Endpoint {
             ip: local_ip.clone(),
             port: local_port,
@@ -118,15 +141,27 @@ impl NetworkInterface for SimulatedNetworkInterface {
             port: remote_port,
         };
 
-        let local_tcp_stream = Arc::new(SimulatedTcpStream::new(Arc::clone(&self.network), local_endpoint.clone(), remote_endpoint.clone()));
-        let remote_tcp_stream = SimulatedTcpStream::new(Arc::clone(&self.network), remote_endpoint, local_endpoint);
-        self.streams.lock().unwrap().insert((local_ip, local_port), Arc::clone(&local_tcp_stream));
+        let local_tcp_stream = Arc::new(SimulatedTcpStream::new(
+            Arc::clone(&self.network),
+            local_endpoint.clone(),
+            remote_endpoint.clone(),
+        ));
+        let remote_tcp_stream =
+            SimulatedTcpStream::new(Arc::clone(&self.network), remote_endpoint, local_endpoint);
+        self.streams
+            .lock()
+            .unwrap()
+            .insert((local_ip, local_port), Arc::clone(&local_tcp_stream));
         spawn(move || {
             remote_tcp_listener.on_new_connection(remote_tcp_stream);
         });
         loop {
             if let Some(control) = local_tcp_stream.receive_control() {
-                println!("ClientStream received {:?} from {:?}", control, local_tcp_stream.get_remote_endpoint());
+                println!(
+                    "ClientStream received {:?} from {:?}",
+                    control,
+                    local_tcp_stream.get_remote_endpoint()
+                );
                 match control {
                     Control::Sync => {
                         break;
@@ -177,7 +212,11 @@ struct SimulatedTcpStream {
 }
 
 impl SimulatedTcpStream {
-    fn new(network: Arc<SimulatedNetwork>, local_endpoint: Endpoint, remote_endpoint: Endpoint) -> Self {
+    fn new(
+        network: Arc<SimulatedNetwork>,
+        local_endpoint: Endpoint,
+        remote_endpoint: Endpoint,
+    ) -> Self {
         let (data_sender, data_receiver) = mpsc::channel();
         let (control_sender, control_receiver) = mpsc::channel();
         SimulatedTcpStream {
@@ -234,7 +273,7 @@ impl TcpStream for SimulatedTcpStream {
             PacketType::Data => {
                 let data = packet.payload.clone().unwrap();
                 self.data_sender.send(data).unwrap();
-            },
+            }
             PacketType::Control => {
                 let control = packet.control.clone().unwrap();
                 self.control_sender.send(control).unwrap();
@@ -265,7 +304,8 @@ impl SimulatedTcpListener {
     }
 
     fn get_stream(&self, remote_endpoint: &Endpoint) -> Option<Arc<SimulatedTcpStream>> {
-        self.connections.lock()
+        self.connections
+            .lock()
             .unwrap()
             .get(&(remote_endpoint.ip.clone(), remote_endpoint.port))
             .map(|tcp_stream| Arc::clone(tcp_stream))
@@ -274,16 +314,19 @@ impl SimulatedTcpListener {
 
 impl TcpListener for SimulatedTcpListener {
     fn accept(&self) -> Option<Arc<dyn TcpStream>> {
-        let tcp_stream = self.connections_receiver
-            .lock()
-            .unwrap()
-            .recv()
-            .ok()?;
+        let tcp_stream = self.connections_receiver.lock().unwrap().recv().ok()?;
         let tcp_stream = Arc::new(tcp_stream);
         let remote_endpoint = &tcp_stream.remote_endpoint;
-        self.connections.lock().unwrap().insert((remote_endpoint.ip.clone(), remote_endpoint.port), Arc::clone(&tcp_stream));
+        self.connections.lock().unwrap().insert(
+            (remote_endpoint.ip.clone(), remote_endpoint.port),
+            Arc::clone(&tcp_stream),
+        );
         tcp_stream.send_control(Control::Sync);
-        println!("TcpListener sent {:?} to {:?}", Control::Sync, tcp_stream.get_remote_endpoint());
+        println!(
+            "TcpListener sent {:?} to {:?}",
+            Control::Sync,
+            tcp_stream.get_remote_endpoint()
+        );
         Some(tcp_stream)
     }
 }
